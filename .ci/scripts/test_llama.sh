@@ -54,6 +54,9 @@ PT2E_QUANTIZE="${PT2E_QUANTIZE:-}"
 # Default CMake Build Type to release mode
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
 
+# Default maximum export time. 
+MAX_EXPORT_TIME=${MAX_EXPORT_TIME:500}
+
 # Argument validation is done individually below for each required parameter
 if [[ -z "${MODEL_NAME:-}" ]]; then
   echo "Missing model name, exiting..."
@@ -255,8 +258,27 @@ fi
 if [[ "${QUANTIZE_KV_CACHE}" == "ON" ]]; then
   EXPORT_ARGS="${EXPORT_ARGS} model.quantize_kv_cache=true"
 fi
+
+# Display the time
+echo "Starting model export at $(date +"%Y-%m-%d %H:%M:%S")"
+echo "Configuration: MODE=${MODE}, DTYPE=${DTYPE}, MODEL=${MODEL_NAME}"
+EXPORT_START_TIME=$(date +%s)
+
 # Add dynamically linked library location
 $PYTHON_EXECUTABLE -m extension.llm.export.export_llm ${EXPORT_ARGS}
+
+EXPORT_END_TIME=$(date +%s)
+EXPORT_DURATION=$((EXPORT_END_TIME - EXPORT_START_TIME))
+echo "Model export completed at $(date +"%Y-%m-%d %H:%M:%S") - Duration: ${EXPORT_DURATION} seconds"
+
+# Check export time against threshold. Default is 500 seconds.
+if [ $EXPORT_DURATION -gt $MAX_EXPORT_TIME ]; then
+    echo "Failure; Export took ${EXPORT_DURATION} seconds, exceeding threshold of ${MAX_EXPORT_TIME} seconds"
+    exit 1
+fi
+
+echo "Successl Export time check passed: ${EXPORT_DURATION}s <= ${MAX_EXPORT_TIME}s"
+
 
 # Create tokenizer.bin.
 echo "Creating tokenizer.bin"
